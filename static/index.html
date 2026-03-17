@@ -134,6 +134,58 @@
       color: var(--muted);
       margin-top: 0.25rem;
     }
+    .progress-box {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      min-height: 80px;
+      font-size: 0.95rem;
+    }
+    .progress-box .current {
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .progress-box .done-item {
+      color: var(--success);
+      margin: 0.2rem 0;
+    }
+    .progress-box .fail-item {
+      color: var(--danger);
+      margin: 0.2rem 0;
+    }
+    .progress-box .summary {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .preview-box {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+    }
+    .preview-box .preview-title { color: var(--muted); margin-bottom: 0.5rem; font-weight: 600; }
+    .preview-box .preview-list { color: var(--text); }
+    .preview-box .preview-list span { display: block; padding: 0.2rem 0; }
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+      padding: 0.5rem 1rem;
+      margin-top: 0.5rem;
+      width: auto;
+      font-size: 0.9rem;
+    }
+    .btn-secondary:hover { background: var(--muted); }
+    .export-btns { margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .export-btns .btn { width: auto; flex: 1; min-width: 140px; }
   </style>
 </head>
 <body>
@@ -154,6 +206,11 @@
         <label for="emails_file">ملف الإيميلات (إكسل .xlsx)</label>
         <input type="file" id="emails_file" name="emails_file" accept=".xlsx,.xls" required />
         <p class="hint">العمود الأول أو عمود باسم "email" يحتوي على عناوين الإيميل</p>
+        <button type="button" class="btn btn-secondary" id="previewBtn">معاينة القائمة</button>
+        <div id="previewBox" class="preview-box" style="display: none;">
+          <div class="preview-title" id="previewTitle"></div>
+          <div class="preview-list" id="previewList"></div>
+        </div>
       </div>
       <div class="form-group">
         <label for="email_column">اسم عمود الإيميل (اختياري)</label>
@@ -180,19 +237,93 @@
     </form>
 
     <div id="result" class="result card"></div>
+    <div id="progressBox" class="progress-box card" style="display: none;"></div>
   </div>
 
   <script>
     const form = document.getElementById('form');
     const resultEl = document.getElementById('result');
+    const progressBox = document.getElementById('progressBox');
     const submitBtn = document.getElementById('submitBtn');
+    const previewBtn = document.getElementById('previewBtn');
+    const previewBox = document.getElementById('previewBox');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewList = document.getElementById('previewList');
+
+    previewBtn.addEventListener('click', async () => {
+      const file = document.getElementById('emails_file').files[0];
+      if (!file) {
+        resultEl.classList.add('show', 'error');
+        resultEl.className = 'result card show error';
+        resultEl.textContent = 'اختر ملف الإيميلات أولاً';
+        return;
+      }
+      const fd = new FormData();
+      fd.append('emails_file', file);
+      fd.append('email_column', document.getElementById('email_column').value.trim() || 'email');
+      previewBtn.disabled = true;
+      previewBtn.textContent = 'جاري المعاينة...';
+      try {
+        const res = await fetch('/preview', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok) {
+          previewBox.style.display = 'block';
+          previewTitle.textContent = 'تم العثور على ' + data.count + ' إيميل:';
+          previewList.innerHTML = data.emails.map(e => '<span>' + e + '</span>').join('');
+        } else {
+          resultEl.className = 'result card show error';
+          resultEl.textContent = data.error || 'حدث خطأ';
+          resultEl.classList.add('show');
+        }
+      } catch (err) {
+        resultEl.className = 'result card show error';
+        resultEl.textContent = 'خطأ في الاتصال: ' + err.message;
+        resultEl.classList.add('show');
+      }
+      previewBtn.disabled = false;
+      previewBtn.textContent = 'معاينة القائمة';
+    });
+
+    function escapeCsv(s) {
+      if (s == null) return '';
+      s = String(s);
+      if (/[,"\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+    function downloadCsv(results) {
+      const header = 'الإيميل,الحالة,رسالة الخطأ';
+      const rows = results.map(r => [r.email, r.status, r.message].map(escapeCsv).join(','));
+      const blob = new Blob(['\uFEFF' + header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'نتائج_الإرسال.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    async function downloadExcel(results) {
+      const res = await fetch('/export-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results: results })
+      });
+      if (!res.ok) throw new Error('فشل التصدير');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'نتائج_الإرسال.xlsx';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       resultEl.classList.remove('show', 'success', 'error');
       resultEl.textContent = '';
+      progressBox.style.display = 'block';
+      progressBox.innerHTML = '<span class="current">جاري التحضير...</span>';
       submitBtn.disabled = true;
       submitBtn.textContent = 'جاري الإرسال...';
+      let sendResults = [];
 
       const fd = new FormData();
       fd.append('email', document.getElementById('email').value.trim());
@@ -210,23 +341,68 @@
 
       try {
         const res = await fetch('/send', { method: 'POST', body: fd });
-        const data = await res.json();
-
-        if (data.ok) {
-          resultEl.className = 'result card show success';
-          resultEl.innerHTML = `تم الإرسال بنجاح.<br>الإجمالي: ${data.total} | نجح: ${data.success} | فشل: ${data.failed}` +
-            (data.errors && data.errors.length ? `<ul>${data.errors.map(x => '<li>' + x.email + ': ' + x.message + '</li>').join('')}</ul>` : '');
-        } else {
-          resultEl.className = 'result card show error';
-          resultEl.textContent = data.error || 'حدث خطأ';
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'حدث خطأ');
         }
-      } catch (err) {
-        resultEl.className = 'result card show error';
-        resultEl.textContent = 'خطأ في الاتصال: ' + err.message;
-      }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let doneItems = '';
 
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'إرسال';
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
+          for (const part of parts) {
+            const line = part.split('\n').find(l => l.startsWith('data:'));
+            if (!line) continue;
+            let data;
+            try {
+              data = JSON.parse(line.slice(5).trim());
+            } catch (_) { continue; }
+            if (data.status === 'sending') {
+              progressBox.innerHTML = doneItems +
+                '<span class="current">جاري الإرسال لـ ' + data.email + ' (' + data.index + '/' + data.total + ')</span>';
+            } else if (data.status === 'sent') {
+              sendResults.push({ email: data.email, status: 'نجح', message: '' });
+              doneItems += '<div class="done-item">تم الإرسال ✓ ' + data.email + '</div>';
+              progressBox.innerHTML = doneItems +
+                '<span class="current">التالي: ' + (data.index < data.total ? 'جاري التحضير...' : '') + '</span>';
+            } else if (data.status === 'error') {
+              sendResults.push({ email: data.email, status: 'فشل', message: data.message || '' });
+              doneItems += '<div class="fail-item">فشل ✗ ' + data.email + ' — ' + data.message + '</div>';
+              progressBox.innerHTML = doneItems + '<span class="current">التالي...</span>';
+            } else if (data.status === 'done') {
+              const summaryDiv = '<div class="summary">انتهى. الإجمالي: ' + data.total + ' | نجح: ' + data.success + ' | فشل: ' + data.failed + '</div>';
+              const exportDiv = '<div class="export-btns"><button type="button" class="btn btn-secondary" id="exportCsv">تحميل CSV</button><button type="button" class="btn btn-secondary" id="exportExcel">تحميل Excel</button></div>';
+              progressBox.innerHTML = doneItems + summaryDiv + exportDiv;
+              document.getElementById('exportCsv').onclick = () => downloadCsv(sendResults);
+              document.getElementById('exportExcel').onclick = async () => {
+                try {
+                  await downloadExcel(sendResults);
+                } catch (err) {
+                  alert('فشل تحميل Excel: ' + err.message);
+                }
+              };
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'إرسال';
+              return;
+            }
+          }
+        }
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'إرسال';
+      } catch (err) {
+        progressBox.style.display = 'none';
+        resultEl.className = 'result card show error';
+        resultEl.textContent = err.message || 'خطأ في الاتصال';
+        resultEl.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'إرسال';
+      }
     });
   </script>
 </body>
