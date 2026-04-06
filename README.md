@@ -36,6 +36,19 @@ FLASK_DEBUG=1 python app.py
 gunicorn --bind 127.0.0.1:8000 --timeout 600 --workers 1 app:app
 ```
 
+## النشر على Render
+
+1. ارفع المشروع إلى **GitHub** (مستودع عام أو خاص).
+2. سجّل الدخول إلى [dashboard.render.com](https://dashboard.render.com) واختر **New**:
+   - **Blueprint** (موصى به): اربط الريبو واختر ملف `render.yaml` — يُنشئ خدمة ويب تلقائياً.
+   - أو **Web Service**: اربط نفس الريبو وعيّن يدوياً:
+     - **Build Command:** `pip install -r requirements.txt`
+     - **Start Command:** `gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 600 app:app`
+3. إصدار بايثون: يُضبط عبر `PYTHON_VERSION` في `render.yaml` أو ملف `.python-version` في جذر المشروع ([توثيق Render](https://render.com/docs/python-version)).
+4. بعد اكتمال النشر، افتح الرابط `https://اسم-الخدمة.onrender.com`.
+
+**ملاحظات:** الخطة المجانية قد تُدخل الخدمة في **سبات** بعد فترة بدون زيارات؛ أول طلب بعد السبات قد يستغرق عشرات الثواني. الإرسال الطويل للإيميلات مدعوم بفضل `--timeout 600`.
+
 ## ملف الإكسل
 
 - اسم الملف الافتراضي: `emails.xlsx`
