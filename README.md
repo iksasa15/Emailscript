@@ -38,13 +38,32 @@ gunicorn --bind 127.0.0.1:8000 --timeout 600 --workers 1 app:app
 
 ## النشر على Render
 
+### New Web Service (نسخ ولصق في النموذج)
+
+| الحقل | القيمة |
+|--------|--------|
+| **Name** | أي اسم، مثلاً `emailscript` |
+| **Language** | Python 3 |
+| **Branch** | `main` (أو الفرع الذي تستخدمه) |
+| **Root Directory** | اتركه **فارغاً** (ما لم يكن المشروع داخل مجلد فرعي) |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 600 app:app` |
+| **Instance Type** | Free (للتجربة) |
+
+**متغير بيئة (اختياري):** إذا طلب Render إصدار بايثون صراحة، أضف:
+
+- **Key:** `PYTHON_VERSION`  
+- **Value:** `3.11.9` (أو نفس إصدار بايثون المثبت عندك محلياً)  
+
+أو اعتمد على ملف `.python-version` في الريبو.
+
+---
+
 1. ارفع المشروع إلى **GitHub** (مستودع عام أو خاص).
 2. سجّل الدخول إلى [dashboard.render.com](https://dashboard.render.com) واختر **New**:
    - **Blueprint** (موصى به): اربط الريبو واختر ملف `render.yaml` — يُنشئ خدمة ويب تلقائياً.
-   - أو **Web Service**: اربط نفس الريبو وعيّن يدوياً:
-     - **Build Command:** `pip install -r requirements.txt`
-     - **Start Command:** `gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 600 app:app`
-3. إصدار بايثون: يُضبط عبر `PYTHON_VERSION` في `render.yaml` أو ملف `.python-version` في جذر المشروع ([توثيق Render](https://render.com/docs/python-version)).
+   - أو **Web Service**: املأ الجدول أعلاه ثم اضغط **Deploy Web Service**.
+3. إصدار بايثون: `PYTHON_VERSION` أو `.python-version` ([توثيق Render](https://render.com/docs/python-version)).
 4. بعد اكتمال النشر، افتح الرابط `https://اسم-الخدمة.onrender.com`.
 
 **ملاحظات:** الخطة المجانية قد تُدخل الخدمة في **سبات** بعد فترة بدون زيارات؛ أول طلب بعد السبات قد يستغرق عشرات الثواني. الإرسال الطويل للإيميلات مدعوم بفضل `--timeout 600`.
