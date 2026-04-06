@@ -186,6 +186,17 @@
     .btn-secondary:hover { background: var(--muted); }
     .export-btns { margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .export-btns .btn { width: auto; flex: 1; min-width: 140px; }
+    .skip-notice {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .skip-notice ul { margin: 0.35rem 0 0; padding-right: 1.1rem; }
     .password-wrap {
       display: flex;
       gap: 0.5rem;
@@ -306,8 +317,22 @@
         const data = await res.json();
         if (data.ok) {
           previewBox.style.display = 'block';
-          previewTitle.textContent = 'تم العثور على ' + data.count + ' إيميل:';
-          previewList.innerHTML = data.emails.map(e => '<span>' + e + '</span>').join('');
+          let title = 'تم قبول ' + data.count + ' إيميل للإرسال';
+          if (data.rejected_count > 0) {
+            title += ' (تم تخطي ' + data.rejected_count + ' لصيغة غير صالحة)';
+          }
+          previewTitle.textContent = title + ':';
+          let listHtml = data.emails.map(e => '<span>' + e + '</span>').join('');
+          if (data.rejected && data.rejected.length > 0) {
+            listHtml += '<p style="margin-top:0.75rem;color:var(--muted);font-size:0.85rem;">مرفوضة قبل الإرسال:</p>';
+            listHtml += data.rejected.slice(0, 25).map(r =>
+              '<span class="fail-item" style="display:block">' + (r.raw || '') + ' — ' + (r.reason || '') + '</span>'
+            ).join('');
+            if (data.rejected.length > 25) {
+              listHtml += '<span class="hint">… و ' + (data.rejected.length - 25) + ' أخرى</span>';
+            }
+          }
+          previewList.innerHTML = listHtml;
         } else {
           resultEl.className = 'result card show error';
           resultEl.textContent = data.error || 'حدث خطأ';
@@ -401,7 +426,18 @@
             try {
               data = JSON.parse(line.slice(5).trim());
             } catch (_) { continue; }
-            if (data.status === 'sending') {
+            if (data.status === 'ready') {
+              let skipBlock = '';
+              if (data.rejected_count > 0 && data.rejected) {
+                skipBlock = '<div class="skip-notice">تم تخطي ' + data.rejected_count +
+                  ' عنواناً (صيغة غير صالحة — لن يُرسَل لها):<ul>' +
+                  data.rejected.map(function (r) {
+                    return '<li>' + (r.raw || '').replace(/</g, '&lt;') + ' — ' + (r.reason || '').replace(/</g, '&lt;') + '</li>';
+                  }).join('') + '</ul></div>';
+              }
+              doneItems = skipBlock;
+              progressBox.innerHTML = doneItems + '<span class="current">بدء الإرسال…</span>';
+            } else if (data.status === 'sending') {
               progressBox.innerHTML = doneItems +
                 '<span class="current">جاري الإرسال لـ ' + data.email + ' (' + data.index + '/' + data.total + ')</span>';
             } else if (data.status === 'sent') {

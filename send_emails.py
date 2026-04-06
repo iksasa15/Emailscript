@@ -20,6 +20,8 @@ except ImportError:
     print("يرجى تثبيت المكتبات: pip install -r requirements.txt")
     sys.exit(1)
 
+from email_utils import cell_value_to_email_string, normalize_email_address, validate_email_syntax
+
 
 # ============ الإعدادات (عدّل حسب احتياجك) ============
 
@@ -54,15 +56,17 @@ DELAY_BETWEEN_EMAILS = 2
 
 
 def load_emails_from_excel(file_path, column):
-    """قراءة قائمة الإيميلات من ملف إكسل"""
+    """
+    قراءة قائمة الإيميلات من ملف إكسل.
+    يُنظّف كل عنوان، يتحقق من الصيغة، ويزيل التكرار.
+    يعيد: (قائمة الإيميلات الصالحة، قائمة المرفوضة مع السبب)
+    """
     wb = load_workbook(file_path, read_only=True, data_only=True)
     ws = wb.active
 
-    # تحديد عمود الإيميل
     if isinstance(column, int):
         col_index = column
     else:
-        # البحث عن اسم العمود في الصف الأول
         headers = [cell.value for cell in ws[1]]
         try:
             col_index = headers.index(column) + 1
@@ -70,13 +74,31 @@ def load_emails_from_excel(file_path, column):
             raise ValueError(f"العمود '{column}' غير موجود. الأعمدة: {headers}")
 
     emails = []
+    rejected = []
+    seen_lower = set()
+
     for row in ws.iter_rows(min_row=2, min_col=col_index, max_col=col_index):
-        cell_value = row[0].value
-        if cell_value and isinstance(cell_value, str) and "@" in cell_value:
-            emails.append(cell_value.strip())
+        raw = cell_value_to_email_string(row[0].value)
+        if not raw or "@" not in raw:
+            continue
+        normalized = normalize_email_address(raw)
+        ok, err = validate_email_syntax(normalized)
+        if ok:
+            key = normalized.lower()
+            if key not in seen_lower:
+                seen_lower.add(key)
+                emails.append(normalized)
+        else:
+            rejected.append(
+                {
+                    "raw": raw[:200],
+                    "normalized": normalized[:200] if normalized else "",
+                    "reason": err or "مرفوض",
+                }
+            )
 
     wb.close()
-    return emails
+    return emails, rejected
 
 
 def send_email(to_email, subject, body, sender, password, attachments=None):
@@ -116,16 +138,24 @@ def main():
 
     print("جاري قراءة الإيميلات من الإكسل...")
     try:
-        emails = load_emails_from_excel(EXCEL_FILE, EMAIL_COLUMN)
+        emails, rejected = load_emails_from_excel(EXCEL_FILE, EMAIL_COLUMN)
     except Exception as e:
         print(f"خطأ في قراءة الملف: {e}")
         sys.exit(1)
+
+    if rejected:
+        print(f"تم تخطي {len(rejected)} سطراً (صيغة غير صالحة):\n")
+        for r in rejected[:30]:
+            print(f"  — {r.get('raw', '')[:60]} → {r.get('reason', '')}")
+        if len(rejected) > 30:
+            print(f"  ... و {len(rejected) - 30} أخرى")
+        print()
 
     if not emails:
         print("لم يتم العثور على إيميلات صالحة في الملف.")
         sys.exit(1)
 
-    print(f"تم العثور على {len(emails)} إيميل. جاري الإرسال...\n")
+    print(f"تم قبول {len(emails)} إيميل للإرسال. جاري الإرسال...\n")
 
     success = 0
     failed = 0

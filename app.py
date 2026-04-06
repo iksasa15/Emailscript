@@ -43,10 +43,18 @@ def preview():
             file.save(tmp.name)
             tmp_path = tmp.name
         try:
-            emails = load_emails_from_excel(tmp_path, email_column)
+            emails, rejected = load_emails_from_excel(tmp_path, email_column)
         finally:
             os.unlink(tmp_path)
-        return jsonify({"ok": True, "emails": emails, "count": len(emails)})
+        return jsonify(
+            {
+                "ok": True,
+                "emails": emails,
+                "count": len(emails),
+                "rejected": rejected,
+                "rejected_count": len(rejected),
+            }
+        )
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
@@ -106,12 +114,15 @@ def send():
             file.save(tmp.name)
             tmp_path = tmp.name
         try:
-            emails = load_emails_from_excel(tmp_path, email_column)
+            emails, rejected = load_emails_from_excel(tmp_path, email_column)
         finally:
             os.unlink(tmp_path)
 
         if not emails:
-            return jsonify({"ok": False, "error": "لم يتم العثور على إيميلات صالحة في الملف"}), 400
+            msg = "لم يتم العثور على إيميلات صالحة في الملف"
+            if rejected:
+                msg += f" (تم تخطي {len(rejected)} سطراً لصيغة غير صالحة)"
+            return jsonify({"ok": False, "error": msg, "rejected": rejected}), 400
 
         attachments = []
         for f in request.files.getlist("attachments"):
@@ -122,6 +133,14 @@ def send():
         return jsonify({"ok": False, "error": str(e)}), 400
 
     def generate():
+        yield sse_message(
+            {
+                "status": "ready",
+                "total": len(emails),
+                "rejected_count": len(rejected),
+                "rejected": rejected[:40],
+            }
+        )
         success = 0
         failed = 0
         total = len(emails)
