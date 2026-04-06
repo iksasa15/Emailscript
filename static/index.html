@@ -186,6 +186,32 @@
     .btn-secondary:hover { background: var(--muted); }
     .export-btns { margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .export-btns .btn { width: auto; flex: 1; min-width: 140px; }
+    .password-wrap {
+      display: flex;
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+    .password-wrap input {
+      flex: 1;
+      min-width: 0;
+    }
+    .btn-toggle-password {
+      flex-shrink: 0;
+      padding: 0.5rem 0.85rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      white-space: nowrap;
+      align-self: stretch;
+    }
+    .btn-toggle-password:hover {
+      background: var(--border);
+    }
   </style>
 </head>
 <body>
@@ -199,7 +225,10 @@
       </div>
       <div class="form-group">
         <label for="password">كلمة مرور التطبيق</label>
-        <input type="password" id="password" name="password" placeholder="••••••••" required />
+        <div class="password-wrap">
+          <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
+          <button type="button" class="btn-toggle-password" id="togglePassword" aria-pressed="false" title="إظهار أو إخفاء كلمة المرور">إظهار</button>
+        </div>
         <p class="hint">استخدم كلمة مرور التطبيق من إعدادات Gmail وليس كلمة مرور الحساب</p>
       </div>
       <div class="form-group">
@@ -249,6 +278,15 @@
     const previewBox = document.getElementById('previewBox');
     const previewTitle = document.getElementById('previewTitle');
     const previewList = document.getElementById('previewList');
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('togglePassword');
+
+    togglePasswordBtn.addEventListener('click', () => {
+      const isHidden = passwordInput.type === 'password';
+      passwordInput.type = isHidden ? 'text' : 'password';
+      togglePasswordBtn.textContent = isHidden ? 'إخفاء' : 'إظهار';
+      togglePasswordBtn.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
+    });
 
     previewBtn.addEventListener('click', async () => {
       const file = document.getElementById('emails_file').files[0];
