@@ -2,11 +2,15 @@
 
 سكربت بايثون يقرأ قائمة إيميلات من ملف إكسل ويرسل لها رسالة واحدة.
 
-## التثبيت
+## التثبيت والتشغيل (الواجهة)
 
 ```bash
+cd /Users/ahmed/Desktop/Emailscript
 pip install -r requirements.txt
+python app.py
 ```
+
+ثم افتح المتصفح على: **http://127.0.0.1:5000**
 
 ## ملف الإكسل
 
@@ -52,9 +56,10 @@ python send_emails.py
 
 أو ضعها مؤقتاً في السكربت في `SENDER_PASSWORD` (غير مستحسن).
 
-## التشغيل
+## التشغيل من الطرفية (بدون واجهة)
 
 ```bash
+cd /Users/ahmed/Desktop/Emailscript
 python send_emails.py
 ```
 
