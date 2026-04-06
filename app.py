@@ -174,4 +174,8 @@ def send():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    port = int(os.environ.get("PORT", "5000"))
+    default_host = "0.0.0.0" if "PORT" in os.environ else "127.0.0.1"
+    host = os.environ.get("FLASK_HOST", default_host)
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host=host, port=port, debug=debug)

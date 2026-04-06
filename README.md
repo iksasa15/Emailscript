@@ -12,6 +12,30 @@ python app.py
 
 ثم افتح المتصفح على: **http://127.0.0.1:5000**
 
+للتطوير مع وضع التصحيح (اختياري):
+
+```bash
+FLASK_DEBUG=1 python app.py
+```
+
+## الاستضافة (Railway / Render / Fly.io / Heroku)
+
+المشروع جاهز للتشغيل بـ **Gunicorn** عبر ملف `Procfile`.
+
+1. ارفع المشروع إلى **GitHub** ثم اربطه بالمنصة.
+2. **أمر البناء:** `pip install -r requirements.txt` (غالباً يُكتشف تلقائياً).
+3. **أمر التشغيل:** يُقرأ من `Procfile` (`gunicorn ... app:app`).
+4. المنصة تضبط متغير **`PORT`** تلقائياً؛ لا حاجة لتعديل الكود.
+5. **`runtime.txt`** يحدد إصدار بايثون (يمكن تغييره حسب المنصة).
+
+**مهم:** لا تفعّل `FLASK_DEBUG` على السيرفر. التطبيق يرسل إيميلات — استخدم HTTPS (المنصة توفره)، ولا تشارك رابط المشروع علناً إن لم تضف حماية (كلمة مرور / IP).
+
+**بدائل:** [PythonAnywhere](https://www.pythonanywhere.com) (إعداد يدوي لـ WSGI)، أو **VPS** مع Nginx أمام Gunicorn:
+
+```bash
+gunicorn --bind 127.0.0.1:8000 --timeout 600 --workers 1 app:app
+```
+
 ## ملف الإكسل
 
 - اسم الملف الافتراضي: `emails.xlsx`
